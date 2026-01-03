@@ -24,3 +24,5 @@ frontend/.vercel
 # IDE
 .vscode/
 .idea/
+backend/tour/
+backend/tour/

@@ -4,6 +4,12 @@ import { TourFilters } from '@/components/tours/TourFilters';
 import { TourCard } from '@/components/tours/TourCard';
 import { TourListItem, Tour } from '@/lib/types';
 
+// Clean markdown URLs from backend (fixes [url](url) → url)
+function cleanUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  return url.replace(/\[.*?\]\((.*?)\)/, '$1').replace(/^\[.*?\]/, '').trim();
+}
+
 interface Props {
   searchParams: Promise<{ destination?: string }>;
 }
@@ -14,7 +20,7 @@ export default async function ToursPage({ searchParams }: Props) {
   
   const toursData: TourListItem[] = await getTours(destination);
 
-  // Convert backend TourListItem[] to frontend Tour[]
+  // Convert backend TourListItem[] to frontend Tour[] with clean URLs
   const tours: Tour[] = toursData.map(tour => ({
     id: tour.id,
     slug: tour.slug,
@@ -29,7 +35,7 @@ export default async function ToursPage({ searchParams }: Props) {
     startingCity: tour.starting_city || '',
     basePricePerPerson: parseFloat(tour.base_price_per_person),
     activeSeasonName: tour.active_season_name,
-    heroImageUrl: tour.hero_image_url || '',
+    heroImageUrl: cleanUrl(tour.hero_image_url),  // ✅ CLEANED URL
     galleryImages: [],
     inclusions: [],
     exclusions: [],

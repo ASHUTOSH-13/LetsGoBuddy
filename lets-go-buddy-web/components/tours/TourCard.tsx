@@ -9,10 +9,26 @@ interface Props {
 }
 
 // Fallback placeholder (add /public/placeholder-tour.jpg later)
-const PLACEHOLDER_URL = '/placeholder-tour.jpg'; // Generic mountain/lake image
+const PLACEHOLDER_URL = '/placeholder-tour.jpg';
+
+function cleanHeroUrl(url: string | null | undefined): string {
+  if (!url) return PLACEHOLDER_URL;
+  
+  // 1. Strip markdown [text](url)
+  let clean = url.replace(/\[.*?\]\((https?:\/\/.*)\)/, '$1').replace(/^\[.*?\]/, '');
+  
+  // 2. Fix unsplash.com/photos/ID → images.unsplash.com/photo-ID
+  clean = clean.replace(/unsplash\.com\/photos\/([a-zA-Z0-9_-]+)/, 'images.unsplash.com/photo-$1');
+  
+  // 3. Strip query params ?w=&fit=
+  clean = clean.split('?')[0];
+  
+  // 4. Validate + fallback
+  return clean.startsWith('https://images.unsplash.com/photo-') ? clean : PLACEHOLDER_URL;
+}
 
 export function TourCard({ tour }: Props) {
-  const safeHeroUrl = tour.heroImageUrl || PLACEHOLDER_URL;
+  const safeHeroUrl = cleanHeroUrl(tour.heroImageUrl);
 
   return (
     <div className="group rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:shadow-xl transition-all duration-300">

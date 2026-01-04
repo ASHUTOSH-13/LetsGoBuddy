@@ -1,4 +1,5 @@
 from typing import List, Optional
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -16,9 +17,7 @@ from app.models.tour import (
 )
 from app.schemas.tour import TourListItem, TourDetail, TourItineraryDay
 
-
 router = APIRouter(prefix="/tours", tags=["tours"])
-
 
 def get_db():
     db = SessionLocal()
@@ -27,6 +26,21 @@ def get_db():
     finally:
         db.close()
 
+def clean_image_url(url: str) -> str:
+    """Clean Unsplash URLs: strip markdown/params, fix photos/ → photo-"""
+    if not url:
+        return ""
+    
+    # Strip markdown [text](url)
+    clean = re.sub(r'\[.*?\]\((https?://.*)\)', r'\1', url)
+    
+    # Fix unsplash.com/photos/ID → images.unsplash.com/photo-ID
+    clean = re.sub(r'unsplash\.com/photos/([a-zA-Z0-9_-]+)', r'images.unsplash.com/photo-\1', clean)
+    
+    # Strip query params
+    clean = clean.split('?')[0]
+    
+    return clean
 
 @router.get("", response_model=List[TourListItem])
 def list_tours(
@@ -52,17 +66,14 @@ def list_tours(
     result: List[TourListItem] = []
     for tour in tours:
         active_price = next(
-            (
-                sp
-                for sp in tour.seasonal_prices
-                if sp.is_active
-            ),
+            (sp for sp in tour.seasonal_prices if sp.is_active),
             None,
         )
-        hero_image = next(
+        raw_hero = next(
             (img.image_url for img in tour.gallery_images if img.is_hero),
             (tour.gallery_images[0].image_url if tour.gallery_images else None),
         )
+        hero_image_url = clean_image_url(raw_hero)  # ✅ Clean here
 
         item = TourListItem(
             id=tour.id,
@@ -80,13 +91,12 @@ def list_tours(
             if active_price
             else tour.base_price_per_person,
             active_season_name=active_price.season_name if active_price else "Standard",
-            hero_image_url=hero_image,
+            hero_image_url=hero_image_url,  # ✅ Clean URL
             is_featured=tour.is_featured,
         )
         result.append(item)
 
     return result
-
 
 @router.get("/{slug}", response_model=TourDetail)
 def get_tour_detail(slug: str, db: Session = Depends(get_db)):
@@ -109,18 +119,15 @@ def get_tour_detail(slug: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Tour not found")
 
     active_price = next(
-        (
-            sp
-            for sp in tour.seasonal_prices
-            if sp.is_active
-        ),
+        (sp for sp in tour.seasonal_prices if sp.is_active),
         None,
     )
 
-    hero_image = next(
+    raw_hero = next(
         (img.image_url for img in tour.gallery_images if img.is_hero),
         (tour.gallery_images[0].image_url if tour.gallery_images else None),
     )
+    hero_image_url = clean_image_url(raw_hero)  # ✅ Clean here
 
     itinerary_days = [
         TourItineraryDay(
@@ -147,9 +154,9 @@ def get_tour_detail(slug: str, db: Session = Depends(get_db)):
         if active_price
         else tour.base_price_per_person,
         active_season_name=active_price.season_name if active_price else "Standard",
-        hero_image_url=hero_image,
+        hero_image_url=hero_image_url,  # ✅ Clean URL
         is_featured=tour.is_featured,
-        gallery_images=[img.image_url for img in tour.gallery_images],
+        gallery_images=[clean_image_url(img.image_url) for img in tour.gallery_images],  # ✅ Clean gallery too
         inclusions=[inc.text for inc in tour.inclusions],
         exclusions=[exc.text for exc in tour.exclusions],
         itinerary=itinerary_days,

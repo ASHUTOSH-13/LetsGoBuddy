@@ -4,10 +4,16 @@ import { TourFilters } from '@/components/tours/TourFilters';
 import { TourCard } from '@/components/tours/TourCard';
 import { TourListItem, Tour } from '@/lib/types';
 
-// Clean markdown URLs from backend (fixes [url](url) → url)
-function cleanUrl(url: string | null | undefined): string {
-  if (!url) return '';
-  return url.replace(/\[.*?\]\((.*?)\)/, '$1').replace(/^\[.*?\]/, '').trim();
+// 🔥 Enhanced: Strips markdown + fixes unsplash.com/photos → images.unsplash.com/photo-
+function cleanHeroUrl(url: string | null | undefined): string {
+  if (!url) return '/placeholder.jpg'; // Add to public/ folder
+  let clean = url.replace(/\[.*?\]\((.*?)\)/g, '$1').split('?')[0].trim();
+  // Fix unsplash.com/photos/ID → images.unsplash.com/photo-ID
+  if (clean.includes('unsplash.com/photos/')) {
+    const id = clean.split('/photos/')[1];
+    clean = `https://images.unsplash.com/photo-${id}`;
+  }
+  return clean;
 }
 
 interface Props {
@@ -20,7 +26,6 @@ export default async function ToursPage({ searchParams }: Props) {
   
   const toursData: TourListItem[] = await getTours(destination);
 
-  // Convert backend TourListItem[] to frontend Tour[] with clean URLs
   const tours: Tour[] = toursData.map(tour => ({
     id: tour.id,
     slug: tour.slug,
@@ -35,7 +40,7 @@ export default async function ToursPage({ searchParams }: Props) {
     startingCity: tour.starting_city || '',
     basePricePerPerson: parseFloat(tour.base_price_per_person),
     activeSeasonName: tour.active_season_name,
-    heroImageUrl: cleanUrl(tour.hero_image_url),  // ✅ CLEANED URL
+    heroImageUrl: cleanHeroUrl(tour.hero_image_url),  // ✅ FIXED
     galleryImages: [],
     inclusions: [],
     exclusions: [],
